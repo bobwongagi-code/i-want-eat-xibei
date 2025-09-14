@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>购物中心探索游戏</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#3B82F6',
+                        secondary: '#10B981',
+                        accent: '#F59E0B',
+                        danger: '#EF4444',
+                        dark: '#1F2937',
+                        light: '#F3F4F6'
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .sign-shadow {
+                box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -2px rgba(0, 0, 0, 0.1);
+            }
+            .sign-hover {
+                transition: all 0.3s ease;
+            }
+            .sign-hover:hover {
+                transform: translateY(-5px);
+                box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.4), 0 10px 10px -5px rgba(0, 0, 0, 0.2);
+            }
+            .character {
+                position: absolute;
+                transition: all 1s ease-in-out;
+                z-index: 10;
+                transform-origin: center;
+            }
+            .floating {
+                animation: floating 3s ease-in-out infinite;
+            }
+            @keyframes floating {
+                0% { transform: translateY(0px); }
+                50% { transform: translateY(-10px); }
+                100% { transform: translateY(0px); }
+            }
+            .pulse-scale {
+                animation: pulse-scale 0.5s ease-in-out;
+            }
+            @keyframes pulse-scale {
+                0% { transform: scale(1); }
+                50% { transform: scale(1.2); }
+                100% { transform: scale(1); }
+            }
+            .walking {
+                animation: walking 0.5s steps(2) infinite;
+            }
+            @keyframes walking {
+                0% { transform: translateY(0) rotate(0deg); }
+                100% { transform: translateY(5px) rotate(2deg); }
+            }
+            .enter-shop {
+                animation: enterShop 1s ease-in-out forwards;
+            }
+            @keyframes enterShop {
+                0% { transform: scale(1) translate(0, 0); opacity: 1; }
+                50% { transform: scale(0.8) translate(0, -10px); opacity: 0.8; }
+                100% { transform: scale(0.2) translate(0, -30px); opacity: 0; }
+            }
+            .shop-highlight {
+                animation: shopHighlight 1s ease-in-out infinite alternate;
+            }
+            @keyframes shopHighlight {
+                0% { box-shadow: 0 0 10px rgba(255, 255, 255, 0.7); }
+                100% { box-shadow: 0 0 20px rgba(255, 255, 255, 1); }
+            }
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-b from-blue-50 to-indigo-50 min-h-screen">
+    <!-- 游戏标题区域 -->
+    <header class="bg-primary text-white py-6 px-4 shadow-lg">
+        <div class="container mx-auto text-center">
+            <h1 class="text-[clamp(1.8rem,5vw,3rem)] font-bold mb-2">购物中心探索</h1>
+            <p class="text-[clamp(1rem,2vw,1.2rem)] opacity-90">点击店铺招牌，引导小人进入</p>
+        </div>
+    </header>
+
+    <!-- 游戏区域 -->
+    <main class="container mx-auto px-4 py-8 relative">
+        <!-- 小人元素 - 放大到最大尺寸 -->
+        <div id="character" class="character hidden">
+            <div class="relative">
+                <i class="fa fa-user-circle text-8xl text-accent"></i>
+                <i class="fa fa-male text-8xl text-accent absolute -top-2 -left-2"></i>
+            </div>
+        </div>
+
+        <!-- 信息提示框 -->
+        <div id="message" class="fixed top-20 left-1/2 transform -translate-x-1/2 bg-dark/90 text-white px-6 py-3 rounded-full text-lg font-medium z-20 hidden transition-all duration-300"></div>
+
+        <!-- 店铺招牌网格 -->
+        <div id="shops-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+            <!-- 店铺招牌将通过JavaScript动态生成 -->
+        </div>
+    </main>
+
+    <!-- 游戏结束画面 (初始隐藏) -->
+    <div id="game-over" class="fixed inset-0 bg-dark/95 z-50 flex flex-col items-center justify-center p-4 hidden">
+        <h2 class="text-[clamp(1.8rem,5vw,3rem)] font-bold text-white mb-8 text-center">恭喜您完成游戏！</h2>
+        <p class="text-[clamp(1.2rem,3vw,1.8rem)] text-accent mb-8 text-center">已探索所有店铺</p>
+        
+        <div id="all-shops" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4 mb-8 max-w-5xl w-full">
+            <!-- 所有店铺将通过JavaScript动态生成 -->
+        </div>
+        
+        <button id="save-btn" class="bg-secondary hover:bg-secondary/80 text-white font-bold py-3 px-8 rounded-full text-lg transition-all duration-300 flex items-center gap-2">
+            <i class="fa fa-download"></i> 保存结果
+        </button>
+    </div>
+
+    <!-- 声音元素 -->
+    <audio id="applause-sound" preload="auto">
+        <source src="https://assets.mixkit.co/sfx/preview/mixkit-applause-people-513.mp3" type="audio/mpeg">
+    </audio>
+    <audio id="pig-sound" preload="auto">
+        <source src="https://assets.mixkit.co/sfx/preview/mixkit-pig-squealing-2290.mp3" type="audio/mpeg">
+    </audio>
+    <audio id="walk-sound" preload="auto">
+        <source src="https://assets.mixkit.co/sfx/preview/mixkit-quick-jump-arcade-game-239.mp3" type="audio/mpeg">
+    </audio>
+
+    <script>
+        // 店铺数据
+        const shops = [
+            { name: "西贝", type: "bad" },
+            { name: "吉祥混沌", type: "bad" },
+            { name: "朱玉光火锅", type: "bad" },
+            { name: "霸蛮牛肉粉", type: "bad" },
+            { name: "鲜啤30公里", type: "bad" },
+            { name: "半山腰", type: "bad" },
+            { name: "夏日玛莉", type: "bad" },
+            { name: "叮叮懒人菜", type: "bad" },
+            { name: "喜舍武汉", type: "bad" },
+            { name: "华与华", type: "bad" },
+            { name: "于东来", type: "bad" },
+            { name: "钛媒体", type: "bad" },
+            { name: "中国企业家", type: "bad" },
+            { name: "和府捞面", type: "bad" },
+            { name: "老乡鸡", type: "good" },
+            { name: "海底捞", type: "good" }
+        ];
+
+        // 游戏状态
+        const gameState = {
+            visitedShops: [],
+            totalShops: shops.length,
+            allShops: shops.map(shop => shop.name)
+        };
+
+        // DOM元素
+        const shopsGrid = document.getElementById('shops-grid');
+        const character = document.getElementById('character');
+        const message = document.getElementById('message');
+        const gameOverScreen = document.getElementById('game-over');
+        const allShopsContainer = document.getElementById('all-shops');
+        const saveBtn = document.getElementById('save-btn');
+        const applauseSound = document.getElementById('applause-sound');
+        const pigSound = document.getElementById('pig-sound');
+        const walkSound = document.getElementById('walk-sound');
+
+        // 初始化音效
+        function initSounds() {
+            applauseSound.volume = 0.7;
+            pigSound.volume = 0.6;
+            walkSound.volume = 0.4;
+        }
+
+        // 生成随机颜色
+        function getRandomColor() {
+            const colors = [
+                'bg-red-500', 'bg-blue-500', 'bg-green-500', 'bg-yellow-500', 
+                'bg-purple-500', 'bg-pink-500', 'bg-indigo-500', 'bg-teal-500',
+                'bg-orange-500', 'bg-cyan-500', 'bg-rose-500', 'bg-emerald-500'
+            ];
+            return colors[Math.floor(Math.random() * colors.length)];
+        }
+
+        // 生成随机图标
+        function getRandomIcon() {
+            const icons = [
+                'fa-cutlery', 'fa-coffee', 'fa-beer', 'fa-leaf', 'fa-cutlery',
+                'fa-glass', 'fa-star', 'fa-heart', 'fa-music', 'fa-cutlery'
+            ];
+            return icons[Math.floor(Math.random() * icons.length)];
+        }
+
+        // 创建店铺招牌
+        function createShopSign(shop, index) {
+            const sign = document.createElement('div');
+            const color = getRandomColor();
+            const icon = getRandomIcon();
+            
+            sign.className = `shop-sign sign-shadow sign-hover rounded-lg overflow-hidden cursor-pointer relative group`;
+            sign.dataset.name = shop.name;
+            sign.dataset.type = shop.type;
+            
+            sign.innerHTML = `
+                <div class="${color} text-white p-4 text-center">
+                    <i class="fa ${icon} text-3xl mb-2 floating"></i>
+                    <h3 class="text-xl font-bold">${shop.name}</h3>
+                </div>
+                <div class="absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                    <span class="text-white font-bold text-lg">点击进入</span>
+                </div>
+                <div class="visited-indicator absolute top-2 right-2 w-4 h-4 rounded-full bg-green-500 hidden"></div>
+            `;
+            
+            sign.addEventListener('click', () => handleShopClick(sign));
+            return sign;
+        }
+
+        // 处理店铺点击
+        function handleShopClick(sign) {
+            const shopName = sign.dataset.name;
+            const shopType = sign.dataset.type;
+            
+            // 如果已经访问过，不做处理
+            if (gameState.visitedShops.includes(shopName)) {
+                showMessage(`你已经去过${shopName}了`);
+                return;
+            }
+            
+            // 标记为已访问
+            gameState.visitedShops.push(shopName);
+            sign.querySelector('.visited-indicator').classList.remove('hidden');
+            
+            // 高亮显示目标店铺
+            sign.classList.add('shop-highlight');
+            
+            // 移动小人到店铺
+            moveCharacterToShop(sign, shopName, shopType, () => {
+                // 移除高亮效果
+                sign.classList.remove('shop-highlight');
+            });
+        }
+
+        // 移动小人到店铺 - 调整位置计算以适应更大的小人尺寸
+        function moveCharacterToShop(shop, shopName, shopType, callback) {
+            // 获取店铺位置
+            const shopRect = shop.getBoundingClientRect();
+            const gridPosition = shopsGrid.getBoundingClientRect();
+            
+            // 计算小人目标位置（店铺中心），考虑更大的尺寸
+            const targetX = shopRect.left - gridPosition.left + shopRect.width / 2 - 32; // 减去图标的一半宽度（8xl是64px）
+            const targetY = shopRect.top - gridPosition.top + shopRect.height / 2 - 32; // 减去图标的一半高度
+            
+            // 显示小人并设置初始位置（屏幕中心）
+            character.style.left = `${window.innerWidth / 2 - 32}px`;
+            character.style.top = `${window.innerHeight / 2 - 32}px`;
+            character.classList.remove('hidden', 'enter-shop');
+            character.classList.add('walking');
+            
+            // 播放走路音效
+            walkSound.currentTime = 0;
+            walkSound.play();
+            
+            // 延迟后移动到店铺位置
+            setTimeout(() => {
+                // 计算移动角度，让小人面向移动方向
+                const currentX = parseInt(character.style.left);
+                const currentY = parseInt(character.style.top);
+                const angle = Math.atan2(targetY - currentY, targetX - currentX) * 180 / Math.PI;
+                character.style.transform = `rotate(${angle}deg)`;
+                
+                // 设置目标位置
+                character.style.left = `${targetX}px`;
+                character.style.top = `${targetY}px`;
+                
+                // 到达后播放声音和显示消息
+                setTimeout(() => {
+                    // 停止走路音效
+                    walkSound.pause();
+                    
+                    // 移除走路动画，添加进入店铺动画
+                    character.classList.remove('walking');
+                    character.classList.add('enter-shop');
+                    
+                    // 播放相应声音
+                    if (shopType === 'good') {
+                        applauseSound.currentTime = 0;
+                        applauseSound.play();
+                        showMessage(`Good choice! 欢迎来到${shopName}`);
+                    } else {
+                        pigSound.currentTime = 0;
+                        pigSound.play();
+                        showMessage(`欢迎来到${shopName}`);
+                    }
+                    
+                    // 隐藏小人
+                    setTimeout(() => {
+                        character.classList.add('hidden');
+                        character.classList.remove('enter-shop');
+                        character.style.transform = 'rotate(0deg)';
+                        
+                        // 执行回调
+                        callback();
+                        
+                        // 检查游戏是否结束
+                        if (gameState.visitedShops.length === gameState.totalShops) {
+                            endGame();
+                        }
+                    }, 1000);
+                }, 1000);
+            }, 100);
+        }
+
+        // 显示消息
+        function showMessage(text) {
+            message.textContent = text;
+            message.classList.remove('hidden');
+            message.classList.add('pulse-scale');
+            
+            setTimeout(() => {
+                message.classList.add('hidden');
+                message.classList.remove('pulse-scale');
+            }, 2000);
+        }
+
+        // 结束游戏
+        function endGame() {
+            // 显示所有店铺
+            allShopsContainer.innerHTML = '';
+            gameState.allShops.forEach(shopName => {
+                const shopEl = document.createElement('div');
+                // 根据店铺类型设置不同颜色
+                const shop = shops.find(s => s.name === shopName);
+                const colorClass = shop.type === 'good' ? 'bg-secondary' : 'bg-danger';
+                
+                shopEl.className = `${colorClass} text-white p-3 rounded-lg text-center`;
+                shopEl.textContent = shopName;
+                allShopsContainer.appendChild(shopEl);
+            });
+            
+            // 显示游戏结束画面
+            gameOverScreen.classList.remove('hidden');
+        }
+
+        // 保存结果到本地
+        function saveResults() {
+            const results = {
+                date: new Date().toLocaleString(),
+                allShops: gameState.allShops,
+                totalShops: gameState.totalShops,
+                completionTime: new Date().toLocaleString()
+            };
+            
+            const blob = new Blob([JSON.stringify(results, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = '购物中心游戏结果.json';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        // 初始化游戏
+        function initGame() {
+            // 初始化音效
+            initSounds();
+            
+            // 打乱店铺顺序
+            const shuffledShops = [...shops].sort(() => Math.random() - 0.5);
+            
+            // 创建店铺招牌
+            shuffledShops.forEach((shop, index) => {
+                const sign = createShopSign(shop, index);
+                shopsGrid.appendChild(sign);
+            });
+            
+            // 绑定保存按钮事件
+            saveBtn.addEventListener('click', saveResults);
+        }
+
+        // 启动游戏
+        window.addEventListener('DOMContentLoaded', initGame);
+    </script>
+</body>
+</html>
+    
